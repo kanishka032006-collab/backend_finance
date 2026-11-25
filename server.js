@@ -21,6 +21,7 @@ const allowedClientOrigins = new Set([
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'https://financefrontend-ten.vercel.app',
+  'https://financefrontend-34q8d72sy-kanishka-0d2e.vercel.app',
   ...(process.env.CLIENT_URLS || '').split(',').map((origin) => origin.trim()).filter(Boolean),
   process.env.CLIENT_URL
 ].filter(Boolean));
