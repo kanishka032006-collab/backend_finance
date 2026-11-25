@@ -26,7 +26,7 @@ exports.login = async (req, res, next) => {
 
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'tridin_finance_super_secret_jwt_key_2026_secured',
+      process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 

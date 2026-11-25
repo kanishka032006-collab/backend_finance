@@ -17,8 +17,17 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
+  if (['P1000', 'P1001', 'P1002', 'P1017'].includes(err.code)) {
+    return res.status(503).json({
+      success: false,
+      message: 'The database is temporarily unavailable. Please try again shortly.'
+    });
+  }
+
   const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal Server Error';
+  const message = process.env.NODE_ENV === 'development'
+    ? err.message || 'Internal Server Error'
+    : 'Internal Server Error';
 
   res.status(statusCode).json({
     success: false,

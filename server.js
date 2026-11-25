@@ -1,8 +1,9 @@
-require('dotenv').config();
+require('./utils/runtimeConfig');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const prisma = require('./utils/prisma');
 const errorHandler = require('./middleware/errorHandler');
 
 // Route imports
@@ -17,6 +18,13 @@ const settingRoutes = require('./routes/settingRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const normalizeOrigin = (value) => {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+};
 const allowedClientOrigins = new Set([
   'http://localhost:5173',
   'http://127.0.0.1:5173',
@@ -24,7 +32,7 @@ const allowedClientOrigins = new Set([
   'https://financefrontend-34q8d72sy-kanishka-0d2e.vercel.app',
   ...(process.env.CLIENT_URLS || '').split(',').map((origin) => origin.trim()).filter(Boolean),
   process.env.CLIENT_URL
-].filter(Boolean));
+].filter(Boolean).map(normalizeOrigin).filter(Boolean));
 
 // Security & Utility Middleware
 app.use(helmet({
@@ -47,12 +55,23 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    service: 'Tridin Software Finance Collection System',
-    timestamp: new Date().toISOString()
-  });
+app.get('/api/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({
+      status: 'healthy',
+      database: 'connected',
+      service: 'Tridin Software Finance Collection System',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Health check] PostgreSQL connection failed:', error.code || error.name);
+    res.status(503).json({
+      status: 'unhealthy',
+      database: 'disconnected',
+      service: 'Tridin Software Finance Collection System'
+    });
+  }
 });
 
 // Mount Routes
@@ -79,7 +98,7 @@ app.use(errorHandler);
 // Start server if run directly
 let server;
 if (require.main === module) {
-  server = app.listen(PORT, () => {
+  server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`=======================================================`);
     console.log(`🚀 TRIDIN FINANCE SYSTEM BACKEND RUNNING ON PORT ${PORT}`);
     console.log(`🌐 Base URL: http://localhost:${PORT}`);
