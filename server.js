@@ -15,6 +15,10 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const userRoutes = require('./routes/userRoutes');
 const settingRoutes = require('./routes/settingRoutes');
+const routeRoutes = require('./routes/routeRoutes');
+const expenseRoutes = require('./routes/expenseRoutes');
+const investmentRoutes = require('./routes/investmentRoutes');
+const salaryRoutes = require('./routes/salaryRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -28,11 +32,17 @@ const normalizeOrigin = (value) => {
 const allowedClientOrigins = new Set([
   'http://localhost:5173',
   'http://127.0.0.1:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5174',
   'https://financefrontend-ten.vercel.app',
   'https://financefrontend-34q8d72sy-kanishka-0d2e.vercel.app',
   ...(process.env.CLIENT_URLS || '').split(',').map((origin) => origin.trim()).filter(Boolean),
   process.env.CLIENT_URL
 ].filter(Boolean).map(normalizeOrigin).filter(Boolean));
+
+const isLocalDevOrigin = (origin) =>
+  process.env.NODE_ENV !== 'production' &&
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
 
 // Security & Utility Middleware
 app.use(helmet({
@@ -40,7 +50,9 @@ app.use(helmet({
 }));
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedClientOrigins.has(origin)) return callback(null, true);
+    if (!origin || allowedClientOrigins.has(origin) || isLocalDevOrigin(origin)) {
+      return callback(null, true);
+    }
     return callback(new Error(`Origin '${origin}' is not allowed by CORS.`));
   },
   credentials: true,
@@ -83,6 +95,10 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/settings', settingRoutes);
+app.use('/api/routes', routeRoutes);
+app.use('/api/expenses', expenseRoutes);
+app.use('/api/investments', investmentRoutes);
+app.use('/api/salary', salaryRoutes);
 
 // 404 handler
 app.use((req, res, next) => {

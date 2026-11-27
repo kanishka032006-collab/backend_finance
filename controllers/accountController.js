@@ -200,8 +200,19 @@ exports.createAccount = async (req, res, next) => {
       totalWeeks,
       firstDueDate,
       dueDay,
-      notes
+      notes,
+      loanType = 'WEEKLY_COLLECTION',
+      interestRate = null,
+      collectionFrequency
     } = req.body;
+
+    const resolvedFrequency =
+      collectionFrequency ||
+      (loanType === 'DAILY_COLLECTION'
+        ? 'DAILY'
+        : loanType === 'MONTHLY_COLLECTION' || loanType === 'MONTHLY_INTEREST'
+          ? 'MONTHLY'
+          : 'WEEKLY');
 
     const customer = await prisma.customer.findFirst({
       where: {
@@ -217,14 +228,21 @@ exports.createAccount = async (req, res, next) => {
     }
 
     // Calculate terms and validate
-    const terms = financeService.calculateAccountTerms(agreedRepayment, actualDisbursed, totalWeeks);
+    const terms =
+      interestRate !== null && interestRate !== undefined && interestRate !== '' && (!agreedRepayment || Number(agreedRepayment) <= 0)
+        ? financeService.calculateLoanTerms(loanType, actualDisbursed, interestRate, totalWeeks)
+        : financeService.calculateAccountTerms(agreedRepayment, actualDisbursed, totalWeeks);
 
-    // Auto-generate weekly instalment schedule
+    // Auto-generate instalment schedule
     const schedule = financeService.createInstalmentSchedule(
       terms.totalWeeks,
       terms.agreedRepayment,
       terms.weeklyInstalment,
-      firstDueDate
+      firstDueDate,
+      resolvedFrequency,
+      loanType,
+      terms.actualDisbursed,
+      interestRate
     );
 
     // Generate unique account number ACC-YYYY-XXXX
@@ -259,7 +277,10 @@ exports.createAccount = async (req, res, next) => {
           firstDueDate: new Date(firstDueDate),
           dueDay: dueDay || 'Monday',
           status: 'ACTIVE',
-          notes
+          notes,
+          loanType,
+          interestRate: interestRate !== null && interestRate !== undefined && interestRate !== '' ? new Prisma.Decimal(Number(interestRate)) : null,
+          collectionFrequency: resolvedFrequency
         }
       });
 

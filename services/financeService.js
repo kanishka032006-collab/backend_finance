@@ -34,9 +34,48 @@ class FinanceService {
   }
 
   /**
-   * Generate weekly instalment schedule
+   * Calculate loan terms for any loan type (Weekly, Daily, Monthly, Monthly Interest, Gold, Auto, Enterprise)
    */
-  createInstalmentSchedule(totalWeeks, agreedRepayment, weeklyInstalment, firstDueDate) {
+  calculateLoanTerms(loanType, principal, interestRate, duration, agreedRepaymentOverride = null) {
+    const p = round2(principal);
+    const rate = Number(interestRate || 0);
+    const count = parseInt(duration, 10);
+
+    if (p <= 0 || count <= 0) {
+      throw new Error('Principal and duration must be greater than zero.');
+    }
+
+    let totalPayable = agreedRepaymentOverride ? round2(agreedRepaymentOverride) : p;
+    if (!agreedRepaymentOverride && rate > 0) {
+      if (loanType === 'MONTHLY_INTEREST') {
+        const monthlyInterest = round2((p * rate) / 100);
+        totalPayable = round2(p + monthlyInterest * count);
+      } else {
+        const interest = round2((p * rate * count) / 100);
+        totalPayable = round2(p + interest);
+      }
+    }
+
+    if (p > totalPayable) {
+      throw new Error('Disbursed amount cannot exceed agreed repayment amount.');
+    }
+
+    const grossDifference = round2(totalPayable - p);
+    const baseInstalment = round2(totalPayable / count);
+
+    return {
+      agreedRepayment: totalPayable,
+      actualDisbursed: p,
+      grossDifference,
+      weeklyInstalment: baseInstalment,
+      totalWeeks: count
+    };
+  }
+
+  /**
+   * Generate instalment schedule (supports DAILY, WEEKLY, MONTHLY, and MONTHLY_INTEREST)
+   */
+  createInstalmentSchedule(totalWeeks, agreedRepayment, weeklyInstalment, firstDueDate, collectionFrequency = 'WEEKLY', loanType = 'WEEKLY_COLLECTION', actualDisbursed = null, interestRate = null) {
     const weeks = parseInt(totalWeeks, 10);
     const baseInstalment = round2(weeklyInstalment);
     const totalAgreed = round2(agreedRepayment);
@@ -47,13 +86,25 @@ class FinanceService {
     let accumulated = 0;
 
     for (let i = 1; i <= weeks; i++) {
-      // Due date +7 days for each week
       const dueDate = new Date(startDate);
-      dueDate.setDate(startDate.getDate() + (i - 1) * 7);
+      if (collectionFrequency === 'DAILY') {
+        dueDate.setDate(startDate.getDate() + (i - 1));
+      } else if (collectionFrequency === 'MONTHLY') {
+        dueDate.setMonth(startDate.getMonth() + (i - 1));
+      } else {
+        dueDate.setDate(startDate.getDate() + (i - 1) * 7);
+      }
 
       let amount = baseInstalment;
-      // For the last week, adjust any 1-2 paise rounding difference to match agreedRepayment exactly
-      if (i === weeks) {
+      if (loanType === 'MONTHLY_INTEREST' && actualDisbursed && interestRate && Number(interestRate) > 0) {
+        const monthlyInt = round2((Number(actualDisbursed) * Number(interestRate)) / 100);
+        if (i === weeks) {
+          amount = round2(totalAgreed - accumulated);
+        } else {
+          amount = monthlyInt;
+          accumulated = round2(accumulated + amount);
+        }
+      } else if (i === weeks) {
         amount = round2(totalAgreed - accumulated);
       } else {
         accumulated = round2(accumulated + amount);

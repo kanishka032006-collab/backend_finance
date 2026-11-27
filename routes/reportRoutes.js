@@ -15,6 +15,8 @@ router.get('/outstanding', reportController.getOutstandingReport);
 router.get('/overdue', reportController.getOverdueReport);
 router.get('/disbursements', reportController.getDisbursementReport);
 router.get('/completed', reportController.getCompletedReport);
+router.get('/cashflow', reportController.getCashFlowReport);
+router.get('/pnl', reportController.getProfitAndLossReport);
 router.get('/export', reportController.exportReportCSV);
 
 module.exports = router;

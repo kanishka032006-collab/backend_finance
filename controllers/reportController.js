@@ -199,3 +199,123 @@ exports.exportReportCSV = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getCashFlowReport = async (req, res, next) => {
+  try {
+    const { days = 14 } = req.query;
+    const endDate = new Date();
+    endDate.setHours(23, 59, 59, 999);
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - (Number(days) - 1));
+    startDate.setHours(0, 0, 0, 0);
+
+    const [payments, expenses, investments, salaries] = await Promise.all([
+      prisma.payment.findMany({
+        where: { status: 'COMPLETED', paymentDate: { gte: startDate, lte: endDate } },
+        select: { amount: true, paymentDate: true, paymentMethod: true }
+      }),
+      prisma.expense.findMany({
+        where: { date: { gte: startDate, lte: endDate } },
+        select: { amount: true, date: true, method: true }
+      }),
+      prisma.investment.findMany({
+        select: { amount: true }
+      }),
+      prisma.staffSalary.findMany({
+        select: { amount: true }
+      })
+    ]);
+
+    const dailyMap = {};
+    for (let i = 0; i < Number(days); i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      const key = d.toISOString().split('T')[0];
+      dailyMap[key] = { date: key, collections: 0, expenses: 0, net: 0 };
+    }
+
+    let cashIn = 0;
+    let onlineIn = 0;
+    payments.forEach((p) => {
+      const key = new Date(p.paymentDate).toISOString().split('T')[0];
+      const amt = Number(p.amount);
+      if (dailyMap[key]) dailyMap[key].collections += amt;
+      if (p.paymentMethod === 'CASH') cashIn += amt;
+      else onlineIn += amt;
+    });
+
+    let cashOut = 0;
+    let onlineOut = 0;
+    expenses.forEach((e) => {
+      const key = new Date(e.date).toISOString().split('T')[0];
+      const amt = Number(e.amount);
+      if (dailyMap[key]) dailyMap[key].expenses += amt;
+      if (e.method === 'CASH') cashOut += amt;
+      else onlineOut += amt;
+    });
+
+    const series = Object.values(dailyMap).map((row) => ({
+      ...row,
+      net: row.collections - row.expenses
+    }));
+
+    const totalCollections = payments.reduce((s, p) => s + Number(p.amount), 0);
+    const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
+    const totalInvestments = investments.reduce((s, i) => s + Number(i.amount), 0);
+    const totalSalaries = salaries.reduce((s, x) => s + Number(x.amount), 0);
+
+    res.json({
+      success: true,
+      data: {
+        series,
+        summary: {
+          totalCollections,
+          totalExpenses,
+          netCashMovement: totalCollections - totalExpenses,
+          cashBalance: cashIn - cashOut,
+          onlineBalance: onlineIn - onlineOut,
+          totalInvestments,
+          totalSalaries
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getProfitAndLossReport = async (req, res, next) => {
+  try {
+    const [accounts, payments, expenses, salaries] = await Promise.all([
+      prisma.financeAccount.findMany({ select: { agreedRepayment: true, actualDisbursed: true, grossDifference: true } }),
+      prisma.payment.findMany({ where: { status: 'COMPLETED' }, select: { amount: true } }),
+      prisma.expense.findMany({ select: { amount: true } }),
+      prisma.staffSalary.findMany({ select: { amount: true } })
+    ]);
+
+    const totalDisbursed = accounts.reduce((s, a) => s + Number(a.actualDisbursed), 0);
+    const totalAgreed = accounts.reduce((s, a) => s + Number(a.agreedRepayment), 0);
+    const expectedGrossProfit = accounts.reduce((s, a) => s + Number(a.grossDifference), 0);
+    const totalCollected = payments.reduce((s, p) => s + Number(p.amount), 0);
+    const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
+    const totalSalaries = salaries.reduce((s, x) => s + Number(x.amount), 0);
+    const realizedGrossProfit = totalAgreed > 0 ? (expectedGrossProfit * (totalCollected / totalAgreed)) : 0;
+    const netProfit = realizedGrossProfit - totalExpenses - totalSalaries;
+
+    res.json({
+      success: true,
+      data: {
+        totalDisbursed,
+        totalAgreed,
+        expectedGrossProfit,
+        totalCollected,
+        realizedGrossProfit: Math.round(realizedGrossProfit * 100) / 100,
+        totalExpenses,
+        totalSalaries,
+        netProfit: Math.round(netProfit * 100) / 100
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
