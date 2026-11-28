@@ -1,7 +1,7 @@
 {
-  "name": "tridin-finance-backend",
+  "name": "tamilfins-backend",
   "version": "1.0.0",
-  "description": "Finance Collection Management System Backend for Tridin Software",
+  "description": "TamilFins Finance Collection Management System Backend",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

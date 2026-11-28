@@ -73,7 +73,7 @@ app.get('/api/health', async (req, res) => {
     res.json({
       status: 'healthy',
       database: 'connected',
-      service: 'Tridin Software Finance Collection System',
+      service: 'TamilFins Finance Collection System',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -81,7 +81,7 @@ app.get('/api/health', async (req, res) => {
     res.status(503).json({
       status: 'unhealthy',
       database: 'disconnected',
-      service: 'Tridin Software Finance Collection System'
+      service: 'TamilFins Finance Collection System'
     });
   }
 });
@@ -116,10 +116,21 @@ let server;
 if (require.main === module) {
   server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`=======================================================`);
-    console.log(`🚀 TRIDIN FINANCE SYSTEM BACKEND RUNNING ON PORT ${PORT}`);
+    console.log(`🚀 TAMILFINS SYSTEM BACKEND RUNNING ON PORT ${PORT}`);
     console.log(`🌐 Base URL: http://localhost:${PORT}`);
     console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`=======================================================`);
+  });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n❌ [TamilFins Error] Port ${PORT} is already in use by another running process.`);
+      console.error(`👉 Solution: Kill the existing process on port ${PORT} using:`);
+      console.error(`   Get-Process -Id (Get-NetTCPConnection -LocalPort ${PORT}).OwningProcess | Stop-Process -Force\n`);
+    } else {
+      console.error('Server error:', err);
+    }
+    process.exit(1);
   });
 }
 
