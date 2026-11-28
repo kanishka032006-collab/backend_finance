@@ -1,4 +1,4 @@
-const { Prisma } = require('../node_modules/.prisma/tridin-client');
+const { Prisma } = require('@prisma/client');
 const prisma = require('../utils/prisma');
 const financeService = require('../services/financeService');
 const { logAudit } = require('../utils/auditLogger');

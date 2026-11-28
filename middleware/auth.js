@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const prisma = require('../utils/prisma');
 
 const authenticate = async (req, res, next) => {
+  let decoded;
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -9,8 +10,18 @@ const authenticate = async (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ success: false, message: 'Session expired. Please log in again.' });
+    }
+    if (error.name === 'JsonWebTokenError' || error.name === 'NotBeforeError') {
+      return res.status(401).json({ success: false, message: 'Invalid authentication token.' });
+    }
+    return next(error);
+  }
 
+  try {
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       select: { id: true, email: true, name: true, role: true, active: true }
@@ -21,12 +32,9 @@ const authenticate = async (req, res, next) => {
     }
 
     req.user = user;
-    next();
+    return next();
   } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ success: false, message: 'Session expired. Please log in again.' });
-    }
-    return res.status(401).json({ success: false, message: 'Invalid authentication token.' });
+    return next(error);
   }
 };
 

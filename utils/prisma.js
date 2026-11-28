@@ -1,5 +1,5 @@
 require('./runtimeConfig');
-const { PrismaClient } = require('../node_modules/.prisma/tridin-client');
+const { PrismaClient } = require('@prisma/client');
 
 let prisma;
 

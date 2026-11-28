@@ -1,7 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../node_modules/.prisma/tridin-client"
-  // Each host generates its own engine during install/build (Windows locally, Linux on Render).
+  // Generate to @prisma/client's default location; backend code imports @prisma/client.
   binaryTargets = ["native"]
 }
 

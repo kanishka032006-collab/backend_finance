@@ -53,7 +53,9 @@ app.use(cors({
     if (!origin || allowedClientOrigins.has(origin) || isLocalDevOrigin(origin)) {
       return callback(null, true);
     }
-    return callback(new Error(`Origin '${origin}' is not allowed by CORS.`));
+    const error = new Error(`Origin '${origin}' is not allowed by CORS.`);
+    error.status = 403;
+    return callback(error);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -114,6 +116,7 @@ app.use(errorHandler);
 // Start server if run directly
 let server;
 if (require.main === module) {
+  // Bind to all interfaces so hosted platforms can route traffic to the service.
   server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`=======================================================`);
     console.log(`🚀 TAMILFINS SYSTEM BACKEND RUNNING ON PORT ${PORT}`);
